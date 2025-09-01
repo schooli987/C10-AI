@@ -1,0 +1,74 @@
+import cv2
+import mediapipe as mp
+import random
+import time
+
+# Initialize camera
+cap = cv2.VideoCapture(0)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+# MediaPipe Hands
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
+
+# Mole settings
+mole_radius = 40
+mole_position = (random.randint(mole_radius, width - mole_radius),
+                 random.randint(mole_radius, height - mole_radius))
+mole_color = (0, 0, 255)  # Red
+score = 0
+mole_time = time.time()
+mole_interval = 2  # Mole moves every 2 seconds
+
+# Font settings
+font = cv2.FONT_HERSHEY_SIMPLEX
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    frame = cv2.flip(frame, 1)
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    result = hands.process(rgb_frame)
+
+
+    cv2.circle(frame, mole_position, mole_radius, mole_color, -1)
+
+    # Check hand landmarks
+    if result.multi_hand_landmarks:
+        for hand_landmarks in result.multi_hand_landmarks:
+            # Draw hand landmarks
+            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+
+            landmarks = hand_landmarks.landmark
+            index_x, index_y = int(landmarks[8].x * width), int(landmarks[8].y * height)
+           
+        
+            cv2.circle(frame, (index_x, index_y), 10, (255, 0, 0), -1)
+
+          
+            if abs(index_x - mole_position[0]) <= 10 and abs(index_y - mole_position[1]) <= 10:
+                score += 1
+                mole_position = (random.randint(mole_radius, width - mole_radius),
+                                 random.randint(mole_radius, height - mole_radius))
+                mole_time = time.time()
+
+    
+    if time.time() - mole_time > mole_interval:
+        mole_position = (random.randint(mole_radius, width - mole_radius),
+                         random.randint(mole_radius, height - mole_radius))
+        mole_time = time.time()
+
+    # Display score
+    cv2.putText(frame, f'Score: {score}', (10, 50), font, 1.5, (0, 255, 0), 3)
+
+    cv2.imshow("Smack-A-Mole", frame)
+    key = cv2.waitKey(1)
+    if key == 27:  # Press Esc to exit
+        break
+
+cap.release()
+cv2.destroyAllWindows()
